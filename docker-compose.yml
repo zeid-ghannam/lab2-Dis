@@ -1,20 +1,115 @@
-version: "3"
+networks:
+  lab_2_hotel_res:
+    driver: bridge
+
 services:
-  postgres:
-    image: library/postgres:13
-    container_name: postgres
-    restart: on-failure
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: "postgres"
-      POSTGRES_DB: postgres
-    volumes:
-      - db-data:/var/lib/postgresql/data
-      - ./postgres/:/docker-entrypoint-initdb.d/
+  gateway:
+    build: ./services/gateway_service
+    networks:
+      - lab_2_hotel_res
     ports:
-      - "5432:5432"
+      - "8080:8080"
+    depends_on:
+      - reservation
+      - payment
+      - loyalty
+    environment:
+      - RESERVATION_SERVICE_URL=http://reservation:8070
+      - PAYMENT_SERVICE_URL=http://payment:8060
+      - LOYALTY_SERVICE_URL=http://loyalty:8050
 
-# TODO добавить сервисы
+  reservation:
+    build: ./services/reservation_service
+    networks:
+      - lab_2_hotel_res
+    ports:
+      - "8070:8070"
+    depends_on:
+      reservation_db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://admin:adminadmin@reservation_db:5432/reservation_db
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8070/manage/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-volumes:
-  db-data:
+  payment:
+    build: ./services/payment_service
+    networks:
+      - lab_2_hotel_res
+    ports:
+      - "8060:8060"
+    depends_on:
+      payment_db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://admin:adminadmin@payment_db:5432/payment_db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8060/manage/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  loyalty:
+    build: ./services/loyalty_service
+    networks:
+      - lab_2_hotel_res
+    ports:
+      - "8050:8050"
+    depends_on:
+      loyalty_db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://admin:adminadmin@loyalty_db:5432/loyalty_db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8050/manage/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  reservation_db:
+    image: postgres:13
+    networks:
+      - lab_2_hotel_res
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=adminadmin
+      - POSTGRES_DB=reservation_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d reservation_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  payment_db:
+    image: postgres:13
+    networks:
+      - lab_2_hotel_res
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=adminadmin
+      - POSTGRES_DB=payment_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d payment_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  loyalty_db:
+    image: postgres:13
+    networks:
+      - lab_2_hotel_res
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=adminadmin
+      - POSTGRES_DB=loyalty_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d loyalty_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s

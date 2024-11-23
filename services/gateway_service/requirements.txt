@@ -1,0 +1,7 @@
+Flask==3.1.0
+requests==2.32.2
+marshmallow
+marshmallow-enum
+# aiohttp
+# asyncio
+python-dateutil
