@@ -264,6 +264,10 @@ class ServiceClient:
 
 service_client = ServiceClient()
 
+@app.route('/manage/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "OK"}), 200
+
 @app.route('/api/v1/hotels', methods=['GET'])
 @handle_service_error
 def get_hotels():
